@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/write"
+        android:title="Write"
+        android:icon="@drawable/ic_write">
+    </item>
+
+    <item
+        android:id="@+id/auth"
+        android:title="Auth"
+        android:icon="@drawable/ic_auth">
+    </item>
+
+    <item
+        android:id="@+id/info"
+        android:title="Info"
+        android:icon="@drawable/ic_info">
+    </item>
+
+</menu>
