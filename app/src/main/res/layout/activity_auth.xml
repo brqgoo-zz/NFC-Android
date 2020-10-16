@@ -4,67 +4,35 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".AuthActivity">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/lb1"
-        android:text="Private Key:"
+        android:text="Expected Public Key:"
         android:layout_marginTop="25dp"
         android:layout_centerHorizontal="true"
         ></TextView>
 
     <EditText
-        android:id="@+id/priKeyBox"
+        android:id="@+id/expectedPubKeyBox"
         android:layout_width="350dp"
-        android:layout_height="60dp"
+        android:layout_height="110dp"
         android:layout_below="@+id/lb1"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="5dp"
-        android:hint=""
+        android:hint="Type expected manufacturer public key"
         android:background="@color/colorAccent"
         ></EditText>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/priKeyBox"
-        android:id="@+id/lb2"
-        android:text="Public Key:"
-        android:layout_marginTop="25dp"
-        android:layout_centerHorizontal="true"
-        ></TextView>
-
-    <EditText
-        android:id="@+id/pubKeyBox"
-        android:layout_width="350dp"
-        android:layout_height="110dp"
-        android:layout_below="@+id/lb2"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="5dp"
-        android:background="@color/colorAccent"
-        android:hint=""
-        ></EditText>
-
-    <EditText
-        android:id="@+id/descriptionTextBox"
-        android:layout_width="300dp"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/pubKeyBox"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="55dp"
-        android:hint="Type product description, UUID etc.."
-        ></EditText>
-
 
     <Button
-        android:id="@+id/writeButton"
+        android:id="@+id/authButton"
         android:layout_width="250dp"
         android:layout_height="wrap_content"
-        android:text="Write"
+        android:text="Auth"
         android:layout_centerHorizontal="true"
-        android:layout_below="@+id/descriptionTextBox"
+        android:layout_below="@+id/expectedPubKeyBox"
         android:layout_marginTop="10dp"
 
         ></Button>
@@ -74,12 +42,13 @@
         android:layout_height="wrap_content"
         android:id="@+id/scanningLabel"
         android:layout_centerHorizontal="true"
-        android:layout_below="@+id/writeButton"
+        android:layout_below="@+id/authButton"
         android:layout_marginTop="10dp"
         android:text="Scannig.."
         android:textSize="20dp"
         android:textColor="@color/colorAccent"
         ></TextView>
+
 
 
 
