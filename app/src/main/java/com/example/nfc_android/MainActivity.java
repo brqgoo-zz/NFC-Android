@@ -24,7 +24,7 @@ import org.web3j.crypto.Hash;
 import org.web3j.crypto.Sign;
 import org.web3j.protocol.http.HttpService;
 import org.web3j.protocol.Web3j;
-
+import android.nfc.tech.MifareUltralight;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.inputmethod.InputMethodManager;
@@ -195,26 +195,87 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onNewIntent(Intent intent) {
+        System.out.println("onNewIntent");
+
 
         super.onNewIntent(intent);
         if (nfcEnabled == true) {
+
             Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-            System.out.println("tagid" + bytesToHex(tag.getId()));
-            //onTagWrite(bytesToHex(tag.getId()));
-            Ndef ndefTag = Ndef.get(tag);
+
+            Ndef ndefTag0 = Ndef.get(tag);
+            MifareUltralight ndefTag = MifareUltralight.get(tag);
 
             if (ndefTag != null) {
 
-                System.out.println("muha");
                 try {
                     ndefTag.connect();
                     NdefRecord record = new NdefRecord(NdefRecord.TNF_WELL_KNOWN, NdefRecord.RTD_TEXT, new byte[0], fromHexString(onTagWrite(bytesToHex(tag.getId()))));
 
                     if (record.getPayload().length >= 50) {
-                        ndefTag.writeNdefMessage(new NdefMessage(new NdefRecord[]{record}));
-                        ndefTag.makeReadOnly();
-                        Toast.makeText(MainActivity.this,
-                                "Writing successful", Toast.LENGTH_SHORT).show();
+
+                        byte[] pwd = new byte[] { (byte)0x70, (byte)0x61, (byte)0x73, (byte)0x73 };
+                        byte[] pack = new byte[] { (byte)0x98, (byte)0x76 };
+
+                        // write PACK:
+                        byte[] result = ndefTag.transceive(new byte[] {
+                                (byte)0xA2,  /* CMD = WRITE */
+                                (byte)0x2C,  /* PAGE = 44 */
+                                pack[0], pack[1], 0, 0
+                        });
+
+                        // write PWD:
+                        byte[] result2 = ndefTag.transceive(new byte[] {
+                                (byte)0xA2,  /* CMD = WRITE */
+                                (byte)0x2B,  /* PAGE = 43 */
+                                pwd[0], pwd[1], pwd[2], pwd[3]
+                        });
+
+                        byte[] response3 = ndefTag.transceive(new byte[] {
+                                (byte) 0x30, // READ
+                                (byte) 42    // page address
+                        });
+
+                        if ((response3 != null) && (response3.length >= 16)) {  // read always returns 4 pages
+                            boolean prot = false;  // false = PWD_AUTH for write only, true = PWD_AUTH for read and write
+                            int authlim = 0; // value between 0 and 7
+                            response3 = ndefTag.transceive(new byte[] {
+                                    (byte) 0xA2, // WRITE
+                                    (byte) 42,   // page address
+                                    (byte) ((response3[0] & 0x078) | (prot ? 0x080 : 0x000) | (authlim & 0x007)),
+                                    response3[1], response3[2], response3[3]  // keep old value for bytes 1-3, you could also simply set them to 0 as they are currently RFU and must always be written as 0 (response[1], response[2], response[3] will contain 0 too as they contain the read RFU value)
+                            });
+                        }
+
+                        byte[] response5 = ndefTag.transceive(new byte[] {
+                                (byte) 0x30, // READ
+                                (byte) 41    // page address
+                        });
+                        if ((response5 != null) && (response5.length >= 16)) {  // read always returns 4 pages
+                            boolean prot = false;  // false = PWD_AUTH for write only, true = PWD_AUTH for read and write
+                            int auth0 = 0; // first page to be protected, set to a value between 0 and 37 for NTAG212
+                            response5 = ndefTag.transceive(new byte[] {
+                                    (byte) 0xA2, // WRITE
+                                    (byte) 41,   // page address
+                                    response5[0], // keep old value for byte 0
+                                    response5[1], // keep old value for byte 1
+                                    response5[2], // keep old value for byte 2
+                                    (byte) (auth0 & 0x0ff)
+                            });
+                        }
+
+                        ndefTag.close();
+
+                        try {
+                            ndefTag0.connect();
+                            ndefTag0.writeNdefMessage(new NdefMessage(new NdefRecord[]{record}));
+                            Toast.makeText(MainActivity.this,
+                                    "Writing successful", Toast.LENGTH_SHORT).show();
+                        } catch (FormatException e) {
+                            e.printStackTrace();
+                            Toast.makeText(MainActivity.this,
+                                    "Writing failed", Toast.LENGTH_SHORT).show();
+                        }
 
                         nfcEnabled = false;
                         scanningLabel.setVisibility(View.GONE);
@@ -229,7 +290,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
 
 
-                } catch (IOException | FormatException e) {
+                } catch (IOException e) {
                     e.printStackTrace();
                     Toast.makeText(MainActivity.this,
                             "Writing failed", Toast.LENGTH_SHORT).show();
@@ -281,7 +342,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         String returnstr = "";
 
-        tagDescription = descriptionTextBox.getText().toString();
+        tagDescription = descriptionTextBox.getText().toString() + " ";
 
             byte[] tagUID = fromHexString(uid);
             byte[] messageToSign = tagDescription.getBytes();

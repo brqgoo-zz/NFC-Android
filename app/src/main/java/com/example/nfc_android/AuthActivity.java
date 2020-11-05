@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.nfc.tech.MifareUltralight;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.widget.Button;
@@ -72,15 +73,8 @@ public class AuthActivity extends AppCompatActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_auth);
 
-
-        setTitle("Write to NFC tag");
+        setTitle("Auth tag");
         context = this;
-
-
-
-
-
-
 
         bottomNavigationView = findViewById(R.id.bottomnavigation);
         bottomNavigationView.setSelectedItemId(R.id.auth);
@@ -135,9 +129,7 @@ public class AuthActivity extends AppCompatActivity implements View.OnClickListe
 
         super.onNewIntent(intent);
         if (nfcEnabled == true) {
-            System.out.println("tagfndns");
             Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-            System.out.println("tagid" + bytesToHex(tag.getId()));
             GetDataFromTag(tag, intent);
         }
 
@@ -145,33 +137,63 @@ public class AuthActivity extends AppCompatActivity implements View.OnClickListe
 
     private void GetDataFromTag(Tag tag, Intent intent) {
         Ndef ndef = Ndef.get(tag);
+        MifareUltralight ndefTag = MifareUltralight.get(tag);
         try {
-            ndef.connect();
-//            txtType.setText(ndef.getType().toString());
-//            txtSize.setText(String.valueOf(ndef.getMaxSize()));
-//            txtWrite.setText(ndef.isWritable() ? "True" : "False");
-            Parcelable[] messages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+            ndefTag.connect();
 
-            if (messages != null) {
-                NdefMessage[] ndefMessages = new NdefMessage[messages.length];
-                for (int i = 0; i < messages.length; i++) {
-                    ndefMessages[i] = (NdefMessage) messages[i];
+            byte[] pwd = new byte[] { (byte)0x70, (byte)0x61, (byte)0x73, (byte)0x73 };
+            byte[] pack = new byte[] { (byte)0x98, (byte)0x76 };
+
+            byte[] response = ndefTag.transceive(new byte[] {
+                    (byte) 0x1B, // PWD_AUTH
+                    pwd[0], pwd[1], pwd[2], pwd[3]
+            });
+            if ((response != null) && (response.length >= 2)) {
+
+                if(bytesToHex(response).toLowerCase().hashCode() == bytesToHex(pack).toLowerCase().hashCode()){
+
+                    ndefTag.close();
+                    ndef.connect();
+
+                    Parcelable[] messages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+
+                    if (messages != null) {
+                        System.out.println("oqqi2");
+                        NdefMessage[] ndefMessages = new NdefMessage[messages.length];
+                        for (int i = 0; i < messages.length; i++) {
+                            ndefMessages[i] = (NdefMessage) messages[i];
+                        }
+                        NdefRecord record = ndefMessages[0].getRecords()[0];
+
+                        byte[] payload = record.getPayload();
+                        String text = new String(payload);
+                        System.out.println("payload is" + bytesToHex(record.getPayload()));
+                        ndef.close();
+
+                        onTag(bytesToHex(tag.getId()),bytesToHex(record.getPayload()));
+
+                    }
+
+
+
                 }
-                NdefRecord record = ndefMessages[0].getRecords()[0];
-
-                byte[] payload = record.getPayload();
-                String text = new String(payload);
-                System.out.println("vahid" + bytesToHex(record.getPayload()));
-                onTag(bytesToHex(tag.getId()),bytesToHex(record.getPayload()));
-                ndef.close();
-
+                else {
+                    ndefTag.close();
+                }
             }
-        } catch (Exception e) {
-            Toast.makeText(getApplicationContext(), "Cannot Read From Tag.", Toast.LENGTH_LONG).show();
+            else {
+                ndefTag.close();
+            }
+
+
+            } catch (IOException ex) {
+            ex.printStackTrace();
+            Toast.makeText(getApplicationContext(), "Auth failed.", Toast.LENGTH_LONG).show();
             nfcEnabled = false;
             scanningLabel.setVisibility(View.GONE);
             authButton.setText("AUTH");
         }
+
     }
 
     @Override
@@ -201,6 +223,11 @@ public class AuthActivity extends AppCompatActivity implements View.OnClickListe
 
     public void onTag(String uid, String pyld) {
 
+
+        System.out.println("onTag start");
+        System.out.println("onTag uid "+uid);
+        System.out.println("onTag pyld "+pyld);
+
         hideKeyboard(AuthActivity.this);
 
         if(expectedPubKeyBox.getText().toString().length() >= 124){
@@ -208,26 +235,19 @@ public class AuthActivity extends AppCompatActivity implements View.OnClickListe
             String tagUID = uid;
             String tagPayLoadHexStr = pyld;
 
-            String tagPayLoadDescriptionHexStr = tagPayLoadHexStr.split("FFFFFFFF")[1].split("FFFFFFFF")[0];
-            String tagPayLoadSigHexStr = tagPayLoadHexStr.split("FFFFFFFF")[2];
 
-            System.out.println(tagPayLoadDescriptionHexStr);
-            System.out.println(tagPayLoadSigHexStr);
+            if(tagPayLoadHexStr.length() >= 100){
+
+                String tagPayLoadDescriptionHexStr = tagPayLoadHexStr.split("FFFFFFFF")[1].split("FFFFFFFF")[0];
+
+                String tagPayLoadSigHexStr = tagPayLoadHexStr.split("FFFFFFFF")[2];
 
             byte[] message = fromHexString(tagUID.toLowerCase() + tagPayLoadDescriptionHexStr.toLowerCase());
+
             byte[] messageHash = Hash.sha256(message);
 
             byte[] signatureBytes = fromHexString(tagPayLoadSigHexStr);
             byte vVal = signatureBytes[64];
-
-            System.out.println("message");
-            System.out.println(bytesToHex(message));
-
-            System.out.println("messageHash");
-            System.out.println(bytesToHex(messageHash));
-
-            System.out.println("vVal");
-            System.out.println(vVal);
 
             Boolean authSuc = false;
 
@@ -260,7 +280,6 @@ public class AuthActivity extends AppCompatActivity implements View.OnClickListe
                     }
                 }
 
-
             }
                 if(authSuc == false){
                     Toast.makeText(AuthActivity.this,
@@ -278,9 +297,15 @@ public class AuthActivity extends AppCompatActivity implements View.OnClickListe
                     scanningLabel.setVisibility(View.GONE);
                     authButton.setText("AUTH");
                 }
+            }
+            else {
+                Toast.makeText(AuthActivity.this,
+                        "Invalid tag", Toast.LENGTH_LONG).show();
 
-
-
+                nfcEnabled = false;
+                scanningLabel.setVisibility(View.GONE);
+                authButton.setText("AUTH");
+            }
 
         }
         else {
